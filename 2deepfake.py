@@ -10,8 +10,8 @@ import tensorflow as tf
 import pickle
 
 # Updated paths for training fake and real images
-fake_image_dir = r"D:\Local Siddharth\fake"
-real_image_dir = r"D:\Local Siddharth\real"
+fake_image_dir = '/content/drive/My Drive/deepfake_data/fake'
+real_image_dir = '/content/drive/My Drive/deepfake_data/real'
 
 # Image size to resize images
 image_size = 224
