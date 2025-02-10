@@ -1,4 +1,3 @@
-# Import necessary libraries
 import cv2
 import os
 import numpy as np
@@ -8,12 +7,9 @@ from sklearn.metrics import confusion_matrix
 from keras.models import Sequential
 from keras.layers import Conv2D, MaxPool2D, Flatten, Dense, Dropout
 import tensorflow as tf
+import pickle
 
-# Mount Google Drive (uncomment if running in Colab)
-from google.colab import drive
-drive.mount('/content/drive')
-
-# Updated paths for training fake and real images (adjust if needed)
+# Updated paths for training fake and real images
 fake_image_dir = '/content/drive/My Drive/deepfake_data/fake'
 real_image_dir = '/content/drive/My Drive/deepfake_data/real'
 
@@ -21,20 +17,15 @@ real_image_dir = '/content/drive/My Drive/deepfake_data/real'
 image_size = 224
 labels = ('real', 'fake')
 
+
 # Function to get images and labels from the directories
 def get_data(fake_dir, real_dir):
     data = []
-    
+
     # Access fake images
     for img in os.listdir(fake_dir):
         try:
-            img_path = os.path.join(fake_dir, img)
-            img_arr = cv2.imread(img_path)
-            if img_arr is None:
-                print(f"Image {img} could not be read from {img_path}.")
-                continue
-            # Convert from BGR to RGB
-            img_arr = img_arr[..., ::-1]
+            img_arr = cv2.imread(os.path.join(fake_dir, img))[..., ::-1]  # BGR to RGB
             resized_arr = cv2.resize(img_arr, (image_size, image_size))
             data.append([resized_arr, 1])  # Label 1 for fake
         except Exception as e:
@@ -43,12 +34,7 @@ def get_data(fake_dir, real_dir):
     # Access real images
     for img in os.listdir(real_dir):
         try:
-            img_path = os.path.join(real_dir, img)
-            img_arr = cv2.imread(img_path)
-            if img_arr is None:
-                print(f"Image {img} could not be read from {img_path}.")
-                continue
-            img_arr = img_arr[..., ::-1]
+            img_arr = cv2.imread(os.path.join(real_dir, img))[..., ::-1]  # BGR to RGB
             resized_arr = cv2.resize(img_arr, (image_size, image_size))
             data.append([resized_arr, 0])  # Label 0 for real
         except Exception as e:
@@ -56,40 +42,49 @@ def get_data(fake_dir, real_dir):
 
     return np.array(data, dtype='object')
 
+
 # Load training data
 train = get_data(fake_image_dir, real_image_dir)
+
+# Check if data is loaded correctly
 print(f"Training data shape: {train.shape}")
 
-# Visualize the distribution of real vs fake images
+# Prepare labels for visualization
 l = ['real' if i[1] == 0 else 'fake' for i in train]
+
+# Plotting the distribution of real vs fake images
 plt.figure(figsize=(8, 4))
 plt.title('Count of Real vs Fake Images', size=16)
 sns.countplot(x=l)
 plt.show()
 
-# Visualize some random images from the training data
+# Visualizing random images from the training data
 plt.figure(figsize=(8, 6))
 plt.imshow(train[1][0])
 plt.title(labels[train[1][1]])
-plt.axis('off')
 plt.show()
 
 plt.figure(figsize=(10, 6))
 plt.imshow(train[-1][0])
 plt.title(labels[train[-1][1]])
-plt.axis('off')
 plt.show()
 
 # Splitting the data into features and labels
-X_train = [feature for feature, label in train]
-y_train = [label for feature, label in train]
+X_train = []
+y_train = []
 
+for feature, label in train:
+    X_train.append(feature)
+    y_train.append(label)
+
+# Convert to numpy arrays
 X_train = np.array(X_train)
 y_train = np.array(y_train)
 
 # Normalize the images
 X_train = X_train / 255.0
 
+# Check the shapes of the datasets
 print(f"X_train shape: {X_train.shape}")
 print(f"y_train shape: {y_train.shape}")
 
@@ -109,13 +104,14 @@ model = Sequential([
 
 # Compile the model
 model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+
+# Summary of the model
 model.summary()
 
 # Train the model
 history = model.fit(X_train, y_train, epochs=10, batch_size=32)
 
-# Plot training loss
-plt.figure()
+# Plot training and validation loss
 plt.plot(history.history['loss'], label='Training Loss')
 plt.title('Loss during training')
 plt.xlabel('Epochs')
@@ -123,8 +119,7 @@ plt.ylabel('Loss')
 plt.legend()
 plt.show()
 
-# Plot training accuracy
-plt.figure()
+# Plot training and validation accuracy
 plt.plot(history.history['accuracy'], label='Training Accuracy')
 plt.title('Accuracy during training')
 plt.xlabel('Epochs')
@@ -132,12 +127,14 @@ plt.ylabel('Accuracy')
 plt.legend()
 plt.show()
 
-# Predict on the training set (for evaluation)
+# Predict on the training set (you can also split into train/test later)
 y_pred = model.predict(X_train)
 y_pred = (y_pred > 0.5).astype(int)
 
 # Compute confusion matrix
 cm = confusion_matrix(y_train, y_pred)
+
+# Plot the confusion matrix
 plt.figure(figsize=(8, 6))
 sns.heatmap(cm, annot=True, fmt='d', cmap=plt.cm.Blues, xticklabels=labels, yticklabels=labels)
 plt.title('Confusion Matrix')
@@ -145,11 +142,13 @@ plt.xlabel('Predicted')
 plt.ylabel('True')
 plt.show()
 
-# Calculate and print training accuracy
+# Calculate accuracy
 accuracy = np.sum(y_pred.flatten() == y_train) / len(y_train)
 print(f"Train Accuracy: {accuracy * 100:.2f}%")
 
-# Save the trained model (recommended: use model.save instead of pickle)
-model_save_path = '/content/drive/My Drive/deepfake_data/fake_image_classifier.h5'
-model.save(model_save_path)
-print(f"Model saved at {model_save_path}")
+# Save the trained model as a .pkl file
+model_path = r"D:\Local Siddharth\fake_image_classifier.pkl"
+with open(model_path, 'wb') as file:
+    pickle.dump(model, file)
+
+print(f"Model saved at {model_path}")
